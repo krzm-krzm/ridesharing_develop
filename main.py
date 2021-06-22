@@ -4,7 +4,7 @@ import sys
 
 mat =[]
 FILENAME='darp01.txt'
-with open('/home/kurozumi/デスクトップ/benchmark/'+ FILENAME,'r',encoding='utf-8') as fin:
+with open('/Users/kurozumi ryouho/Desktop/benchmark/'+ FILENAME,'r',encoding='utf-8') as fin:
     for line in fin.readlines():
         row = []
         toks = line.split(' ')
