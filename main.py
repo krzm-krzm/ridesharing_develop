@@ -35,16 +35,37 @@ def Setting(FILENAME):
 
     #各距離の計算
     c = np.zeros((len(mat),len(mat)),dtype=float,order='C')
+
+    # eがtime_windowの始、lが終
+    e = np.zeros(len(mat),dtype=float,order='C')
+    l = np.zeros(len(mat),dtype=float,order='C')
+
+    #テキストファイルからtime_windowを格納 & 各ノードの距離を計算し格納
     for i in range(len(mat)):
+        e[i] = mat[i][5]
+        l[i] =mat[i][6]
         for j in range(len(mat)):
             c[i][j] =distance(mat[i][1],mat[j][1],mat[i][2],mat[j][2])
 
-    return Setting_Info,request_number,depo_zahyo,c
+
+
+
+    return Setting_Info,request_number,depo_zahyo,c,e,l
+
+
+def initial_sulution(request_node,vehicle_number):
+    riyoukyaku_number = np.arange(1,request_node/2)
+    route_list = np.zeros((int(vehicle_number),0)
+    while True:
+        if riyoukyaku_number.size == 0:
+            break
+
+
 
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
 
-n = Setting(FILENAME)[1] #リクエスト数
+n = Setting(FILENAME)[1] #depoを除いたノード数
 m =Setting_Info[0]  #車両数
 Q_max =Setting_Info[4]  #車両の最大容量
 
@@ -58,4 +79,20 @@ c = np.zeros((n+1,n+1),dtype=float,order='C')
 c= Setting(FILENAME)[3] #各ノード間のコスト
 print(q)
 
+e = np.zeros(n+1,dtype=float,order='C')
+l = np.zeros(n+1,dtype=float,order='C')
+e = Setting(FILENAME)[4]
+l = Setting(FILENAME)[5]
 
+print(e)
+
+#initial_solution
+
+route_list = np.empty((0,0))
+
+arr1 = np.arange(1,6)
+#  [2]の位置の要素を削除した新しい配列を生成。
+arr2 = np.delete(arr1,2)
+route_list = np.append(route_list,arr2)
+route_list = np.append(route_list,arr2,axis=0)
+print(route_list)
