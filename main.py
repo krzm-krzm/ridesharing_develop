@@ -54,19 +54,30 @@ def Setting(FILENAME):
 
 
 def initial_sulution(request_node,vehicle_number):
-    riyoukyaku_number = np.arange(1,request_node/2)
-    route_list = np.zeros((int(vehicle_number),0)
+    riyoukyaku_number =  np.arange(1,request_node/2+1)
+    Route = [[] *1 for i in range(vehicle_number)]
+    i =0
     while True:
         if riyoukyaku_number.size == 0:
             break
+        if i > vehicle_number-1:
+            i = 0
+        a = int(np.random.choice(riyoukyaku_number,1))
+        Route[i].append(a)
+        b = a*2
+        Route[i].append(b)
+        riyoukyaku_number = np.delete(riyoukyaku_number,np.where(riyoukyaku_number == a))
+        i = i+1
+
+    return Route
 
 
 
-FILENAME='darp01.txt'
+FILENAME='darp03.txt'
 Setting_Info= Setting(FILENAME)[0]
 
 n = Setting(FILENAME)[1] #depoを除いたノード数
-m =Setting_Info[0]  #車両数
+m =int(Setting_Info[0])  #車両数
 Q_max =Setting_Info[4]  #車両の最大容量
 
 q=np.zeros(int(m),dtype=int,order='C')
@@ -88,11 +99,6 @@ print(e)
 
 #initial_solution
 
-route_list = np.empty((0,0))
+Route = initial_sulution(n,m)
 
-arr1 = np.arange(1,6)
-#  [2]の位置の要素を削除した新しい配列を生成。
-arr2 = np.delete(arr1,2)
-route_list = np.append(route_list,arr2)
-route_list = np.append(route_list,arr2,axis=0)
-print(route_list)
+print(Route)
