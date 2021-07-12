@@ -47,10 +47,13 @@ def Setting(FILENAME):
         for j in range(len(mat)):
             c[i][j] =distance(mat[i][1],mat[j][1],mat[i][2],mat[j][2])
 
+    #乗り降りの0-1情報を格納
+    noriori = np.zeros(len(mat),dtype=int,order='C')
+    for i in range(len(mat)):
+        noriori[i] = mat[i][4]
 
 
-
-    return Setting_Info,request_number,depo_zahyo,c,e,l
+    return Setting_Info,request_number,depo_zahyo,c,e,l,noriori
 
 
 def initial_sulution(request_node,vehicle_number):
@@ -71,9 +74,20 @@ def initial_sulution(request_node,vehicle_number):
 
     return Route
 
+def Route_cost(Route,node_cost):
+    Route_sum =0
+    Route_sum_k = np.zeros(len(Route),dtype=float,order='C')
+    for i in range(len(Route)):
+        for j in range(len(Route[i])-1):
+            Route_sum_k[i] = Route_sum_k[i] + node_cost[Route[i][j]][Route[i][j+1]]
+        Route_sum_k[i] = Route_sum_k[i] + node_cost[0][Route[i][0]]
+        Route_sum_k[i]  = Route_sum_k[i] + node_cost[0][Route[i][j+1]]
+        Route_sum = Route_sum+Route_sum_k[i]
+
+    return Route_sum
 
 
-FILENAME='darp03.txt'
+FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
 
 n = Setting(FILENAME)[1] #depoを除いたノード数
@@ -102,3 +116,11 @@ print(e)
 Route = initial_sulution(n,m)
 
 print(Route)
+
+noriori = np.zeros(n+1,dtype=int,order='C')
+noriori = Setting(FILENAME)[6]
+
+print(noriori)
+
+Route_SUM = Route_cost(Route,c)
+print(Route_SUM)
