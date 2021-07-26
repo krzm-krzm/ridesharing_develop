@@ -2,6 +2,7 @@ import numpy as np
 import random
 import sys
 import math
+import time
 
 def distance(x1,x2,y1,y2):
     d = math.sqrt((x2-x1)**2 + (y2-y1)**2)
@@ -23,7 +24,7 @@ def Setting(FILENAME):
                 row.append(num)
             mat.append(row)
     #インスタンスの複数の行（問題設定）を取り出す
-    Setting_Info = mat.pop(0) #0:車両数、4:キャパシティ、8:一台あたりの最大移動時間(min)、10:一人あたりの最大移動時間(min)
+    Setting_Info = mat.pop(0) #0:車両数、4:キャパシティ、8:一台あたりの最大移動時間(min)、9:一人あたりの最大移動時間(min)
 
     #デポの座標を取り出す
     depo_zahyo = np.zeros(2) #デポ座標配列
@@ -67,7 +68,7 @@ def initial_sulution(request_node,vehicle_number):
             i = 0
         a = int(np.random.choice(riyoukyaku_number,1))
         Route[i].append(a)
-        b = a*2
+        b = a+int(request_node/2)
         Route[i].append(b)
         riyoukyaku_number = np.delete(riyoukyaku_number,np.where(riyoukyaku_number == a))
         i = i+1
@@ -86,16 +87,46 @@ def Route_cost(Route,node_cost):
 
     return Route_sum
 
+def capacity(Route,q,Q_max,noriori):
+    capacity_over =0
+    for i in range(len(Route)):
+        for j in range(len(Route[i])):
+            q[i] = q[i] + noriori[Route[i][j]]
+            if q[i] >Q_max:
+                capacity_over += 1
+    return capacity_over
+
+def time_caluculation(Route_k,node_cost,e,l,d,request_node):
+    B = np.zeros(n + 2, dtype=float, order='C') #サービス開始時間（e.g., 乗せる時間、降ろす時間)
+    A = np.zeros(n + 2, dtype=float, order='C') #ノード到着時間
+    D = np.zeros(n + 2, dtype=float, order='C') #ノード出発時間
+    W = np.zeros(n + 2, dtype=float, order='C')  #車両待ち時間
+    for i in range(len(Route_k)):
+        if i ==0:
+            A[Route_k[i]] =D[i] +node_cost[i][Route_k[i]]
+            B[Route_k[i]] = max(e[Route_k[i]],A[Route_k[i]])
+            D[Route_k[i]] = B[Route_k[i]] +d
+            W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
+        else:
+            A[Route_k[i]] = D[Route_k[i-1]] +node_cost[Route_k[i-1]][Route_k[i]]
+            B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
+            D[Route_k[i]] = B[Route_k[i]] + d
+            W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
+
+    return A,B,D,W
 
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
 
 n = Setting(FILENAME)[1] #depoを除いたノード数
 m =int(Setting_Info[0])  #車両数
+d = 5 #乗り降りの時間
 Q_max =Setting_Info[4]  #車両の最大容量
+T_max = Setting_Info[8] #一台当たりの最大移動時間
+L_max = Setting_Info[9] #一人あたりの最大移動時間
 
 q=np.zeros(int(m),dtype=int,order='C')
-q=q+Q_max   #各車両の容量
+
 
 
 depo_zahyo=Setting(FILENAME)[2] #デポの座標
@@ -111,6 +142,9 @@ l = Setting(FILENAME)[5]
 
 print(e)
 
+
+
+
 #initial_solution
 
 Route = initial_sulution(n,m)
@@ -123,4 +157,17 @@ noriori = Setting(FILENAME)[6]
 print(noriori)
 
 Route_SUM = Route_cost(Route,c)
+
 print(Route_SUM)
+print(T_max)
+print(L_max)
+
+q_s = capacity(Route,q,Q_max,noriori)
+print(q_s)
+
+B = np.zeros(n+2,dtype=float,order='C')
+A = np.zeros(n+2,dtype=float,order='C')
+D =np.zeros(n+2,dtype=float,order='C')
+
+B= time_caluculation(Route[0],c,e,l,d)[1]
+print(B)
