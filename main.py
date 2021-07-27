@@ -87,7 +87,7 @@ def Route_cost(Route,node_cost):
 
     return Route_sum
 
-def capacity(Route,q,Q_max,noriori):
+def capacity(Route,q,Q_max,noriori): #ルート全体を引数に入れている→計算の無駄があり？
     capacity_over =0
     for i in range(len(Route)):
         for j in range(len(Route[i])):
@@ -96,11 +96,12 @@ def capacity(Route,q,Q_max,noriori):
                 capacity_over += 1
     return capacity_over
 
-def time_caluculation(Route_k,node_cost,e,l,d,request_node):
+def time_caluculation(Route_k,node_cost,e,d,request_node):
     B = np.zeros(n + 2, dtype=float, order='C') #サービス開始時間（e.g., 乗せる時間、降ろす時間)
     A = np.zeros(n + 2, dtype=float, order='C') #ノード到着時間
     D = np.zeros(n + 2, dtype=float, order='C') #ノード出発時間
     W = np.zeros(n + 2, dtype=float, order='C')  #車両待ち時間
+    L = np.zeros(int(request_node / 2), dtype=float, order='C')  # リクエストiの乗車時間
     for i in range(len(Route_k)):
         if i ==0:
             A[Route_k[i]] =D[i] +node_cost[i][Route_k[i]]
@@ -112,8 +113,32 @@ def time_caluculation(Route_k,node_cost,e,l,d,request_node):
             B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
             D[Route_k[i]] = B[Route_k[i]] + d
             W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
+    A[-1] = D[Route_k[i]] + node_cost[0][Route_k[i]]
+    B[-1] = A[-1]
+    for i in range(len(Route_k)):
+        if Route_k[i] <= request_node / 2:
+            L[Route_k[i] - 1] = B[Route_k[i] + int(request_node / 2)] - D[Route_k[i]]
 
-    return A,B,D,W
+    return A,B,D,W,L
+
+def time_window_penalty(Route_k,B,l):
+    sum =0
+    for i in range(len(Route_k)):
+        a = B[Route_k[i]] - l[Route_k[i]]
+        if a > 0:
+          sum = sum +a
+    a = B[-1] -l[0]
+    if a >0:
+        sum = sum +a
+    return sum
+
+def ride_time_penalty(L,L_max):
+    sum =0
+    for i in range(len(L)):
+        a = L[i] -L_max
+        if a >0:
+          sum = sum+a
+    return sum
 
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
@@ -133,7 +158,7 @@ depo_zahyo=Setting(FILENAME)[2] #デポの座標
 
 c = np.zeros((n+1,n+1),dtype=float,order='C')
 c= Setting(FILENAME)[3] #各ノード間のコスト
-print(q)
+
 
 e = np.zeros(n+1,dtype=float,order='C')
 l = np.zeros(n+1,dtype=float,order='C')
@@ -165,9 +190,15 @@ print(L_max)
 q_s = capacity(Route,q,Q_max,noriori)
 print(q_s)
 
-B = np.zeros(n+2,dtype=float,order='C')
+
 A = np.zeros(n+2,dtype=float,order='C')
 D =np.zeros(n+2,dtype=float,order='C')
 
-B= time_caluculation(Route[0],c,e,l,d)[1]
-print(B)
+B= time_caluculation(Route[0],c,e,d,n)
+print(B[4])
+
+w = time_window_penalty(Route[0],B[1],l)
+print(w)
+
+t = ride_time_penalty(B[4],L_max)
+print(t)
