@@ -138,6 +138,37 @@ def ride_time_penalty(L,L_max):
         if a >0:
           sum = sum+a
     return sum
+
+'''
+enumerate関数を使っている
+for j,row in enumerate(Route)
+jが車両番号、rowは車両jの顧客リストを取得
+中のforループで近傍探索で変更するランダムで選ばれた顧客のindex値（あるいはそのものの値）を取得できるまで回している
+'''
+def neighbourhood(Route,requestnode):
+    m = np.arange(len(Route))
+    i = random.randint(1,requestnode/2)
+    for j,row in enumerate(Route):
+        try:
+            U_before = [i,j]
+            i_index = row.index(i)
+            break
+        except ValueError:
+            pass
+    U_before = np.array(U_before) #車両変更前 U = [顧客番号、車両番号]
+    k_new = int(np.random.choice(m[m != U_before[1]],size=1))
+    U_after = np.array([U_before[0],k_new]) #車両変更後 U = [顧客番号、新たな車両番号]
+
+    for j in range(len(Route)):
+        try:
+            Route[j].remove(U_before[0])
+            Route[j].remove(U_before[0]+requestnode/2)
+            break
+        except ValueError:
+            pass
+    return Route
+
+
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
 
@@ -169,7 +200,7 @@ print(e)
 
 Route = initial_sulution(n,m)
 
-print(Route)
+
 
 noriori = np.zeros(n+1,dtype=int,order='C')
 noriori = Setting(FILENAME)[6]
@@ -197,3 +228,7 @@ print(w)
 
 t = ride_time_penalty(B[4],L_max)
 print(t)
+print(Route)
+new_Route = neighbourhood(Route,n)
+
+print(new_Route)
