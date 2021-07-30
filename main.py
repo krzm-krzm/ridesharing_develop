@@ -75,14 +75,14 @@ def initial_sulution(request_node,vehicle_number):
 
     return Route
 
-def Route_cost(Route,node_cost):
+def Route_cost(route):
     Route_sum =0
-    Route_sum_k = np.zeros(len(Route),dtype=float,order='C')
-    for i in range(len(Route)):
-        for j in range(len(Route[i])-1):
-            Route_sum_k[i] = Route_sum_k[i] + node_cost[Route[i][j]][Route[i][j+1]]
-        Route_sum_k[i] = Route_sum_k[i] + node_cost[0][Route[i][0]]
-        Route_sum_k[i]  = Route_sum_k[i] + node_cost[0][Route[i][j+1]]
+    Route_sum_k = np.zeros(len(route),dtype=float,order='C')
+    for i in range(len(route)):
+        for j in range(len(route[i])-1):
+            Route_sum_k[i] = Route_sum_k[i] + c[route[i][j]][route[i][j+1]]
+        Route_sum_k[i] = Route_sum_k[i] + c[0][route[i][0]]
+        Route_sum_k[i]  = Route_sum_k[i] + c[0][route[i][j+1]]
         Route_sum = Route_sum+Route_sum_k[i]
 
     return Route_sum
@@ -120,13 +120,13 @@ def time_caluculation(Route_k,node_cost,e,d,request_node):
             L[Route_k[i]-1] = B[Route_k[i]+int(request_node/2)] - D[Route_k[i]]
     return A,B,D,W,L
 
-def time_window_penalty(Route_k,B,l):
+def time_window_penalty(route_k,b,l):
     sum =0
-    for i in range(len(Route_k)):
-        a = B[Route_k[i]] - l[Route_k[i]]
+    for i in range(len(route_k)):
+        a = b[route_k[i]] - l[route_k[i]]
         if a > 0:
           sum = sum +a
-    a = B[-1] -l[0]
+    a = b[-1] -l[0]
     if a >0:
         sum = sum +a
     return sum
@@ -145,29 +145,35 @@ for j,row in enumerate(Route)
 jが車両番号、rowは車両jの顧客リストを取得
 中のforループで近傍探索で変更するランダムで選ばれた顧客のindex値（あるいはそのものの値）を取得できるまで回している
 '''
-def neighbourhood(Route,requestnode):
-    m = np.arange(len(Route))
+
+
+def neighbourhood(route,requestnode):
+    m = np.arange(len(route))
     i = random.randint(1,requestnode/2)
-    for j,row in enumerate(Route):
+    for j,row in enumerate(route):
         try:
-            U_before = [i,j]
+            u_before = [i,j]
             i_index = row.index(i)
             break
         except ValueError:
             pass
-    U_before = np.array(U_before) #車両変更前 U = [顧客番号、車両番号]
-    k_new = int(np.random.choice(m[m != U_before[1]],size=1))
-    U_after = np.array([U_before[0],k_new]) #車両変更後 U = [顧客番号、新たな車両番号]
+    u_before = np.array(u_before) #車両変更前 U = [顧客番号、車両番号]
+    k_new = int(np.random.choice(m[m != u_before[1]],size=1))
+    u_after = np.array([u_before[0],k_new]) #車両変更後 U = [顧客番号、新たな車両番号]
+    neighbour = np.append(u_before,u_after,axis=0).reshape(2,2)
+    return neighbour
 
-    for j in range(len(Route)):
+def newRoute(route,requestnode,neighbour):
+    new_route = route
+    for j in range(len(route)):
         try:
-            Route[j].remove(U_before[0])
-            Route[j].remove(U_before[0]+requestnode/2)
+            new_route[j].remove(neighbour[0][0])
+            new_route[j].remove(neighbour[0][0]+requestnode/2)
             break
         except ValueError:
             pass
-    return Route
 
+    return new_route
 
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
@@ -179,7 +185,7 @@ Q_max =Setting_Info[4]  #車両の最大容量
 T_max = Setting_Info[8] #一台当たりの最大移動時間
 L_max = Setting_Info[9] #一人あたりの最大移動時間
 
-q=np.zeros(int(m),dtype=int,order='C')
+Q=np.zeros(int(m),dtype=int,order='C')
 
 
 
@@ -187,7 +193,7 @@ depo_zahyo=Setting(FILENAME)[2] #デポの座標
 
 c = np.zeros((n+1,n+1),dtype=float,order='C')
 c= Setting(FILENAME)[3] #各ノード間のコスト
-print(q)
+print(Q)
 
 e = np.zeros(n+1,dtype=float,order='C')
 l = np.zeros(n+1,dtype=float,order='C')
@@ -207,13 +213,13 @@ noriori = Setting(FILENAME)[6]
 
 print(noriori)
 
-Route_SUM = Route_cost(Route,c)
+Route_SUM = Route_cost(Route)
 print(Route_SUM)
 
 print(T_max)
 print(L_max)
 
-q_s = capacity(Route,q,Q_max,noriori)
+q_s = capacity(Route,Q,Q_max,noriori)
 print(q_s)
 
 
@@ -228,7 +234,10 @@ print(w)
 
 t = ride_time_penalty(B[4],L_max)
 print(t)
-print(Route)
-new_Route = neighbourhood(Route,n)
 
-print(new_Route)
+Neighbour = neighbourhood(Route,n)
+print(Neighbour)
+print(Route)
+New_Route = newRoute(Route,n,Neighbour) #関数を使うと前のルートも一緒に更新されてしまう→何故？？？？？？？
+print(New_Route)
+print(Route)
