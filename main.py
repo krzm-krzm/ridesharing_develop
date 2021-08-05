@@ -59,7 +59,7 @@ def Setting(FILENAME):
 
 def initial_sulution(request_node,vehicle_number):
     riyoukyaku_number =  np.arange(1,request_node/2+1)
-    Route = [[] *1 for i in range(vehicle_number)]
+    route = [[] *1 for i in range(vehicle_number)]
     i =0
     while True:
         if riyoukyaku_number.size == 0:
@@ -67,13 +67,13 @@ def initial_sulution(request_node,vehicle_number):
         if i > vehicle_number-1:
             i = 0
         a = int(np.random.choice(riyoukyaku_number,1))
-        Route[i].append(a)
+        route[i].append(a)
         b = a + int(request_node/2)
-        Route[i].append(b)
+        route[i].append(b)
         riyoukyaku_number = np.delete(riyoukyaku_number,np.where(riyoukyaku_number == a))
         i = i+1
 
-    return Route
+    return route
 
 def Route_cost(route):
     Route_sum =0
@@ -87,7 +87,8 @@ def Route_cost(route):
 
     return Route_sum
 
-def capacity(Route,q,Q_max,noriori):
+def capacity(Route):
+    q = np.zeros(int(m), dtype=int, order='C')
     capacity_over =0
     for i in range(len(Route)):
         for j in range(len(Route[i])):
@@ -120,6 +121,7 @@ def time_caluculation(Route_k,node_cost,e,d,request_node):
             L[Route_k[i]-1] = B[Route_k[i]+int(request_node/2)] - D[Route_k[i]]
     return A,B,D,W,L
 
+
 def time_window_penalty(route_k,b,l):
     sum =0
     for i in range(len(route_k)):
@@ -131,7 +133,7 @@ def time_window_penalty(route_k,b,l):
         sum = sum +a
     return sum
 
-def ride_time_penalty(L,L_max):
+def ride_time_penalty(L): #論文でのt_s
     sum =0
     for i in range(len(L)):
         a = L[i] -L_max
@@ -175,17 +177,23 @@ def newRoute(route,requestnode,neighbour):
 
     return new_route
 
+def penalty_sum(route):
+    c_s = Route_cost(route)
+    q_s = capacity(route)
+
 FILENAME='darp01.txt'
 Setting_Info= Setting(FILENAME)[0]
 
 n = int(Setting(FILENAME)[1]) #depoを除いたノード数
 m =int(Setting_Info[0])  #車両数
 d = 5 #乗り降りの時間
-Q_max =Setting_Info[4]  #車両の最大容量
+Q_max =Setting_Info[4]  #車両の最大容量 global変数 capacity関数で使用
 T_max = Setting_Info[8] #一台当たりの最大移動時間
 L_max = Setting_Info[9] #一人あたりの最大移動時間
 
-Q=np.zeros(int(m),dtype=int,order='C')
+noriori = np.zeros(n+1,dtype=int,order='C')
+noriori = Setting(FILENAME)[6] #global変数  capacity関数で使用
+
 
 
 
@@ -193,7 +201,7 @@ depo_zahyo=Setting(FILENAME)[2] #デポの座標
 
 c = np.zeros((n+1,n+1),dtype=float,order='C')
 c= Setting(FILENAME)[3] #各ノード間のコスト
-print(Q)
+
 
 e = np.zeros(n+1,dtype=float,order='C')
 l = np.zeros(n+1,dtype=float,order='C')
@@ -208,8 +216,6 @@ Route = initial_sulution(n,m)
 
 
 
-noriori = np.zeros(n+1,dtype=int,order='C')
-noriori = Setting(FILENAME)[6]
 
 print(noriori)
 
@@ -219,7 +225,7 @@ print(Route_SUM)
 print(T_max)
 print(L_max)
 
-q_s = capacity(Route,Q,Q_max,noriori)
+q_s = capacity(Route)
 print(q_s)
 
 
@@ -232,7 +238,7 @@ print(B[4])
 w = time_window_penalty(Route[0],B[1],l)
 print(w)
 
-t = ride_time_penalty(B[4],L_max)
+t = ride_time_penalty(B[4])
 print(t)
 
 Neighbour = neighbourhood(Route,n)
