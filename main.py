@@ -209,6 +209,7 @@ def newRoute(route,requestnode,neighbour):
     return new_route
 
 def penalty_sum(route,requestnode):
+    parameta = np.zeros(4)
     c_s = Route_cost(route)
     q_s = capacity(route)
     d_s =0
@@ -220,7 +221,11 @@ def penalty_sum(route,requestnode):
         w_s =w_s +time_window_penalty(route[i],ROUTE_TIME_info[1])
         t_s =t_s +ride_time_penalty(ROUTE_TIME_info[4])
     penalty =c_s+keisu[0]*q_s+keisu[1]*d_s+keisu[2]*w_s+keisu[3]*t_s
-    return penalty
+    parameta[0] = q_s
+    parameta[1] = d_s
+    parameta[2] = w_s
+    parameta[3] =t_s
+    return penalty,parameta
 
 def penalty_sum_route_k(route_k,requestnode):
     c_s =route_k_cost_sum(route_k)
@@ -260,72 +265,68 @@ def insert_route(route,requestnode,neighbor):
     new_route[neighbor[1][1]] =copy.copy(new_route_k)
     return new_route
 
-FILENAME='darp01.txt'
-Setting_Info= Setting(FILENAME)[0]
+def keisu_update(delta,parameta):
+    for i in range(len(parameta)):
+        if parameta[i] > 0:
+            keisu[i] =keisu[i] * (1+delta)
+        else:
+            keisu[i] = keisu[i] /(1+delta)
 
-n = int(Setting(FILENAME)[1]) #depoを除いたノード数
-m =int(Setting_Info[0])  #車両数
-d = 5 #乗り降りの時間
-Q_max =Setting_Info[4]  #車両の最大容量 global変数 capacity関数で使用
-T_max = Setting_Info[8] #一台当たりの最大移動時間
-L_max = Setting_Info[9] #一人あたりの最大移動時間
-
-noriori = np.zeros(n+1,dtype=int,order='C')
-noriori = Setting(FILENAME)[6] #global変数  capacity関数で使用
-
-
-keisu =np.ones(4)
-
-depo_zahyo=Setting(FILENAME)[2] #デポの座標
-
-c = np.zeros((n+1,n+1),dtype=float,order='C')
-c= Setting(FILENAME)[3] #各ノード間のコスト
+def tabu_update(theta,tabu_list,neighbour):
+    for i in range(math.ceil(theta)):
+        if tabu_list[i][2] == -1:
+            tabu_list[i][0] = neighbour[0][0]
+            tabu_list[i][1] = neighbour[0][1]
+            tabu_list[i][2] = math.ceil(theta) +1
+            break
+    for i in range(math.ceil(theta)):
+        if tabu_list[i][2] >=0:
+            tabu_list[i][2] = tabu_list[i][2]-1
 
 
-e = np.zeros(n+1,dtype=float,order='C')
-l = np.zeros(n+1,dtype=float,order='C')
-e = Setting(FILENAME)[4]
-l = Setting(FILENAME)[5]
-
-print(e)
-
-#initial_solution
-
-Route = initial_sulution(n,m)
-
-
-
-
-print(noriori)
-
-Route_SUM = Route_cost(Route)
-print(Route_SUM)
-
-print(T_max)
-print(L_max)
-
-
-
-Neighbour = neighbourhood(Route,n)
-print(Neighbour)
-print(Route)
-ab = route_k_cost_sum(Route[0])
-ax =penalty_sum_route_k(Route[0],n)
-print(ax)
-print(penalty_sum(Route,n))
-NewRoute = newRoute(Route,n,Neighbour)
-print(NewRoute)
-print(penalty_sum(NewRoute,n))
-print(keisu)
 def main():
     initial_Route = initial_sulution(n, m) #初期解生成
-    loop =0
+    opt = penalty_sum(initial_Route,n)[0]
+    test =penalty_sum(initial_Route,n)[0]
+    loop =0 #メインのループ回数
+    parameta_loop =0 #パラメーター調整と集中化のループ回数(ループ回数は10回)
+    delta =0.5
+    theta =7.5*math.log10(n/2)
+    tabu_list = np.zeros((math.ceil(theta),3))-1
     while True:
-
-        Neighbour =neighbourhood(initial_Route,n)   #近傍探索操作[リクエスト番号,以前の車両]→[リクエスト番号,挿入する車両]
+        while True:
+            Neighbour =neighbourhood(initial_Route,n)   #近傍探索操作[リクエスト番号,以前の車両]→[リクエスト番号,挿入する車両]
+            check=0
+            for i in range(math.ceil(theta)): #ループ回数をtabu_listのサイズにあわせなければならない
+                if tabu_list[i][0] == Neighbour[1][0] and tabu_list[i][1] == Neighbour[1][1] and tabu_list[i][2] >=0: #たぶん間違い
+                    check +=1
+                if tabu_list[i][0] == Neighbour[0][0] and tabu_list[i][1] == Neighbour[0][1] and tabu_list[i][2] >=0: #たぶん間違い
+                    check +=1
+            if check ==0:
+                break
         NewRoute = newRoute(initial_Route,n,Neighbour)
 
-    return NewRoute
+        if penalty_sum(NewRoute,n)[0] <= opt:
+            opt = penalty_sum(NewRoute,n)[0]
+
+        keisu_update(delta,penalty_sum(NewRoute,n)[1])
+        tabu_update(theta,tabu_list,Neighbour)
+
+        parameta_loop += 1
+        if parameta_loop ==100:
+            delta =np.random.uniform(0,0.5)
+            theta = np.random.uniform(0,7.5*math.log10(n/2))
+        loop +=1
+        if loop ==10:
+            break
+
+    print(initial_Route)
+    print(NewRoute)
+    print(test,opt)
+    print(penalty_sum(NewRoute,n)[1])
+    print(keisu)
+    print(tabu_list)
+
 
 if __name__ =='__main__':
     FILENAME = 'darp01.txt'
@@ -353,3 +354,4 @@ if __name__ =='__main__':
 
     keisu =np.ones(4)
     main()
+
