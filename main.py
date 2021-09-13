@@ -15,6 +15,7 @@ import sys
 import math
 import time
 import copy
+import csv
 
 def distance(x1,x2,y1,y2):
     d = math.sqrt((x2-x1)**2 + (y2-y1)**2)
@@ -220,12 +221,14 @@ def penalty_sum(route,requestnode):
         d_s =d_s+ROUTE_TIME_info[1][-1]
         w_s =w_s +time_window_penalty(route[i],ROUTE_TIME_info[1])
         t_s =t_s +ride_time_penalty(ROUTE_TIME_info[4])
+
     penalty =c_s+keisu[0]*q_s+keisu[1]*d_s+keisu[2]*w_s+keisu[3]*t_s
+    no_penalty =c_s+q_s+d_s+w_s+t_s
     parameta[0] = q_s
     parameta[1] = d_s
     parameta[2] = w_s
     parameta[3] =t_s
-    return penalty,parameta
+    return penalty,parameta,no_penalty
 
 def penalty_sum_route_k(route_k,requestnode):
     c_s =route_k_cost_sum(route_k)
@@ -242,27 +245,27 @@ def penalty_sum_route_k(route_k,requestnode):
     return penalty
 
 def insert_route(route,requestnode,neighbor):
-    new_route_k =copy.copy(route[neighbor[1][1]])
+    new_route_k =copy.deepcopy(route[neighbor[1][1]])
     insert_number=neighbor[0][0]
     route_k_node = len(route[neighbor[1][1]])
 
     new_route_k.insert(0,insert_number)
     new_route_k.insert(1,insert_number+int(requestnode/2))
     penalty=penalty_sum_route_k(new_route_k,requestnode)
-    check_route = copy.copy(route[neighbor[1][1]])
+    check_route = copy.deepcopy(route[neighbor[1][1]])
     for i in range(route_k_node):
         j=i+1
         while j<=4:
-            check_route = copy.copy(route[neighbor[1][1]])
+            check_route = copy.deepcopy(route[neighbor[1][1]])
             check_route.insert(i,insert_number)
             check_route.insert(j,int(insert_number+requestnode/2))
             check_penalty =penalty_sum_route_k(check_route,requestnode)
             if check_penalty <penalty:
                 penalty =check_penalty
-                new_route_k =check_route
+                new_route_k =copy.deepcopy(check_route)
             j=j+1
-    new_route =copy.copy(route)
-    new_route[neighbor[1][1]] =copy.copy(new_route_k)
+    new_route =copy.deepcopy(route)
+    new_route[neighbor[1][1]] =copy.deepcopy(new_route_k)
     return new_route
 
 def keisu_update(delta,parameta):
@@ -284,8 +287,11 @@ def tabu_update(theta,tabu_list,neighbour):
             tabu_list[i][2] = tabu_list[i][2]-1
 
 
-def main():
+
+def main(data,N):
+    data = np.zeros(1000)
     initial_Route = initial_sulution(n, m) #初期解生成
+    syoki = copy.deepcopy(initial_Route)
     opt = penalty_sum(initial_Route,n)[0]
     test =penalty_sum(initial_Route,n)[0]
     loop =0 #メインのループ回数
@@ -293,40 +299,58 @@ def main():
     delta =0.5
     theta =7.5*math.log10(n/2)
     tabu_list = np.zeros((math.ceil(theta),3))-1
+    kinbo_cost= float('inf')
+
     while True:
-        while True:
-            Neighbour =neighbourhood(initial_Route,n)   #近傍探索操作[リクエスト番号,以前の車両]→[リクエスト番号,挿入する車両]
-            check=0
-            for i in range(math.ceil(theta)): #ループ回数をtabu_listのサイズにあわせなければならない
-                if tabu_list[i][0] == Neighbour[1][0] and tabu_list[i][1] == Neighbour[1][1] and tabu_list[i][2] >=0: #たぶん間違い
-                    check +=1
-                if tabu_list[i][0] == Neighbour[0][0] and tabu_list[i][1] == Neighbour[0][1] and tabu_list[i][2] >=0: #たぶん間違い
-                    check +=1
-            if check ==0:
-                break
-        NewRoute = newRoute(initial_Route,n,Neighbour)
+        for i in range(N):
+            while True:
+                Neighbour =neighbourhood(initial_Route,n)   #近傍探索操作[リクエスト番号,以前の車両]→[リクエスト番号,挿入する車両]
+                check=0
+                for i in range(len(tabu_list)): #ループ回数をtabu_listのサイズにあわせなければならない
+                    if tabu_list[i][0] == Neighbour[1][0] and tabu_list[i][1] == Neighbour[1][1] and tabu_list[i][2] >=0: #たぶん間違い
+                        check +=1
+                    if tabu_list[i][0] == Neighbour[0][0] and tabu_list[i][1] == Neighbour[0][1] and tabu_list[i][2] >=0: #たぶん間違い
+                        check +=1
+                if check ==0:
+                    break
+            NewRoute = newRoute(initial_Route,n,Neighbour)
+            if penalty_sum(NewRoute,n)[0] < kinbo_cost:
+                best_neighbour = Neighbour
+                NextRoute = copy.deepcopy(NewRoute)
+                kinbo_cost =penalty_sum(NextRoute,n)[0]
 
-        if penalty_sum(NewRoute,n)[0] <= opt:
-            opt = penalty_sum(NewRoute,n)[0]
+        if kinbo_cost <= opt:
+            opt = kinbo_cost
+            saiteki_route =NextRoute
+            saiteki = penalty_sum(saiteki_route,n)[2]
 
-        keisu_update(delta,penalty_sum(NewRoute,n)[1])
-        tabu_update(theta,tabu_list,Neighbour)
+
+
+        keisu_update(delta,penalty_sum(NextRoute,n)[1])
+        tabu_update(theta,tabu_list,best_neighbour)
+        kinbo_cost = float('inf')
+
+
+        initial_Route = copy.deepcopy(NextRoute)
 
         parameta_loop += 1
         if parameta_loop ==100:
             delta =np.random.uniform(0,0.5)
             theta = np.random.uniform(0,7.5*math.log10(n/2))
+            parameta_loop =0
+        data[loop] = opt
         loop +=1
-        if loop ==10:
+        if loop ==1000:
             break
 
-    print(initial_Route)
-    print(NewRoute)
+    print(syoki)
+    print(saiteki_route)
     print(test,opt)
-    print(penalty_sum(NewRoute,n)[1])
+    print(saiteki)
+    print(penalty_sum(saiteki_route,n)[1])
     print(keisu)
     print(tabu_list)
-
+    np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/data/bench1.csv', data, delimiter=",")
 
 if __name__ =='__main__':
     FILENAME = 'darp01.txt'
@@ -353,5 +377,6 @@ if __name__ =='__main__':
     l = Setting(FILENAME)[5]
 
     keisu =np.ones(4)
-    main()
+    data = np.zeros(1000)
+    main(data,4)
 
