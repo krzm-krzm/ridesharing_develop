@@ -286,21 +286,58 @@ def tabu_update(theta,tabu_list,neighbour):
         if tabu_list[i][2] >=0:
             tabu_list[i][2] = tabu_list[i][2]-1
 
+def syutyu(route,requestnode):
+    newroute = copy.deepcopy(route)
+    loop =1
+    for i in range(len(route)):
+        for j in range(requestnode):
+            try:
+                newroute[i].remove(loop)
+                newroute[i].remove(loop+requestnode/2)
+                break
+            except ValueError:
+                pass
+            newroute = insert_route_k(newroute,i,j,requestnode)
+            loop +=1
+    return  newroute
 
+def insert_route_k(route,veichle,number,requestnode):
+    new_route_k = copy.deepcopy(route[veichle])
+    insert_number = number
+    route_k_node = len(route[veichle])
 
-def main(data,N):
-    data = np.zeros(1000)
+    new_route_k.insert(0, insert_number)
+    new_route_k.insert(1, insert_number + int(requestnode / 2))
+    penalty = penalty_sum_route_k(new_route_k, requestnode)
+    check_route = copy.deepcopy(route[veichle])
+    for i in range(route_k_node):
+        j = i + 1
+        while j <= 4:
+            check_route = copy.deepcopy(route[veichle])
+            check_route.insert(i, insert_number)
+            check_route.insert(j, int(insert_number + requestnode / 2))
+            check_penalty = penalty_sum_route_k(check_route, requestnode)
+            if check_penalty < penalty:
+                penalty = check_penalty
+                new_route_k = copy.deepcopy(check_route)
+            j = j + 1
+    new_route = copy.deepcopy(route)
+    new_route[veichle] = copy.deepcopy(new_route_k)
+    return new_route
+
+def main(LOOP,N):
+    data = np.zeros(LOOP)
     initial_Route = initial_sulution(n, m) #初期解生成
     syoki = copy.deepcopy(initial_Route)
-    opt = penalty_sum(initial_Route,n)[0]
-    test =penalty_sum(initial_Route,n)[0]
+    opt = penalty_sum(initial_Route,n)[2]
+    test =penalty_sum(initial_Route,n)[2]
     loop =0 #メインのループ回数
     parameta_loop =0 #パラメーター調整と集中化のループ回数(ループ回数は10回)
     delta =0.5
-    theta =7.5*math.log10(n/2)
-    tabu_list = np.zeros((math.ceil(theta),3))-1
+    theta =5
+    tabu_list = np.zeros((theta,3))-1
     kinbo_cost= float('inf')
-
+    syutyu_loop =0
     while True:
         for i in range(N):
             while True:
@@ -313,8 +350,8 @@ def main(data,N):
                         check +=1
                 if check ==0:
                     break
-            NewRoute = newRoute(initial_Route,n,Neighbour)
-            if penalty_sum(NewRoute,n)[0] < kinbo_cost:
+            NewRoute = copy.deepcopy(newRoute(initial_Route,n,Neighbour))
+            if penalty_sum(NewRoute,n)[2] < kinbo_cost:
                 best_neighbour = Neighbour
                 NextRoute = copy.deepcopy(NewRoute)
                 kinbo_cost =penalty_sum(NextRoute,n)[0]
@@ -326,21 +363,23 @@ def main(data,N):
 
 
 
-        keisu_update(delta,penalty_sum(NextRoute,n)[1])
+
         tabu_update(theta,tabu_list,best_neighbour)
         kinbo_cost = float('inf')
 
 
         initial_Route = copy.deepcopy(NextRoute)
 
+
+
         parameta_loop += 1
         if parameta_loop ==100:
             delta =np.random.uniform(0,0.5)
-            theta = np.random.uniform(0,7.5*math.log10(n/2))
             parameta_loop =0
+
         data[loop] = opt
         loop +=1
-        if loop ==1000:
+        if loop ==LOOP:
             break
 
     print(syoki)
@@ -377,6 +416,9 @@ if __name__ =='__main__':
     l = Setting(FILENAME)[5]
 
     keisu =np.ones(4)
-    data = np.zeros(1000)
-    main(data,4)
+    t1 = time.time()
+    main(5000,4)
+    t2 =time.time()
+
+    print(f"time:{t2-t1}")
 
