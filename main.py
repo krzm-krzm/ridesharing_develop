@@ -1,8 +1,21 @@
+'''
+以下グローバル変数→定義しないとダメな変数ですよ
+m:車両数
+c:ノード間コスト
+noriori:ノードにおいての乗り降り[1,-1]変数
+e,l:最早出発、最遅出発時間
+d:乗り降りの時間(サービス時間)
+Q_max:車両の最大容量
+T_max:一台当たりの最大移動時間
+L_max:一人あたりの最大移動時間
+'''
 import numpy as np
 import random
 import sys
 import math
 import time
+import copy
+import csv
 
 def distance(x1,x2,y1,y2):
     d = math.sqrt((x2-x1)**2 + (y2-y1)**2)
@@ -12,7 +25,7 @@ def distance(x1,x2,y1,y2):
 
 def Setting(FILENAME):
     mat=[]
-    with open('/home/kurozumi/デスクトップ/benchmark/'+ FILENAME,'r',encoding='utf-8') as fin:
+    with open('/home/kurozumi/デスクトップ/benchmark/' + FILENAME, 'r', encoding='utf-8') as fin:
         for line in fin.readlines():
             row = []
             toks = line.split(' ')
@@ -79,25 +92,47 @@ def Route_cost(route):
     Route_sum =0
     Route_sum_k = np.zeros(len(route),dtype=float,order='C')
     for i in range(len(route)):
-        for j in range(len(route[i])-1):
-            Route_sum_k[i] = Route_sum_k[i] + c[route[i][j]][route[i][j+1]]
-        Route_sum_k[i] = Route_sum_k[i] + c[0][route[i][0]]
-        Route_sum_k[i]  = Route_sum_k[i] + c[0][route[i][j+1]]
+        if len(route[i]) == 0:
+            Route_sum_k[i] =0
+        else:
+            for j in range(len(route[i])-1):
+                Route_sum_k[i] = Route_sum_k[i] + c[route[i][j]][route[i][j+1]]
+            Route_sum_k[i] = Route_sum_k[i] + c[0][route[i][0]]
+            Route_sum_k[i]  = Route_sum_k[i] + c[0][route[i][j+1]]
         Route_sum = Route_sum+Route_sum_k[i]
 
     return Route_sum
 
-def capacity(Route):
+def route_k_cost_sum(route_k):
+    route_k_sum =0
+    for i in range(len(route_k)-1):
+        route_k_sum =route_k_sum+c[route_k[i]][route_k[i+1]]
+    route_k_sum = route_k_sum +c[0][route_k[0]]
+    route_k_sum = route_k_sum + c[0][route_k[i+1]]
+
+    return  route_k_sum
+
+
+def capacity(route):
     q = np.zeros(int(m), dtype=int, order='C')
     capacity_over =0
-    for i in range(len(Route)):
-        for j in range(len(Route[i])):
-            q[i] = q[i] + noriori[Route[i][j]]
+    for i in range(len(route)):
+        for j in range(len(route[i])):
+            q[i] = q[i] + noriori[route[i][j]]
             if q[i] >Q_max:
                 capacity_over += 1
     return capacity_over
 
-def time_caluculation(Route_k,node_cost,e,d,request_node):
+def capacity_route_k(route_k):
+    capacity_over =0
+    q =0
+    for i in range(len(route_k)):
+        q = q+noriori[route_k[i]]
+        if q >Q_max:
+            capacity_over +=1
+    return capacity_over
+
+def time_caluculation(Route_k,request_node):
     B = np.zeros(n + 2, dtype=float, order='C') #サービス開始時間（e.g., 乗せる時間、降ろす時間)
     A = np.zeros(n + 2, dtype=float, order='C') #ノード到着時間
     D = np.zeros(n + 2, dtype=float, order='C') #ノード出発時間
@@ -105,16 +140,16 @@ def time_caluculation(Route_k,node_cost,e,d,request_node):
     L = np.zeros(int(request_node/2),dtype=float, order='C') #リクエストiの乗車時間
     for i in range(len(Route_k)):
         if i ==0:
-            A[Route_k[i]] =D[i] +node_cost[i][Route_k[i]]
+            A[Route_k[i]] =D[i] +c[i][Route_k[i]]
             B[Route_k[i]] = max(e[Route_k[i]],A[Route_k[i]])
             D[Route_k[i]] = B[Route_k[i]] +d
             W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
         else:
-            A[Route_k[i]] = D[Route_k[i-1]] +node_cost[Route_k[i-1]][Route_k[i]]
+            A[Route_k[i]] = D[Route_k[i-1]] +c[Route_k[i-1]][Route_k[i]]
             B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
             D[Route_k[i]] = B[Route_k[i]] + d
             W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
-    A[-1] = D[Route_k[i]] + node_cost[0][Route_k[i]]
+    A[-1] = D[Route_k[i]] + c[0][Route_k[i]]
     B[-1] = A[-1]
     for i in range(len(Route_k)):
         if Route_k[i] <= request_node/2:
@@ -122,7 +157,7 @@ def time_caluculation(Route_k,node_cost,e,d,request_node):
     return A,B,D,W,L
 
 
-def time_window_penalty(route_k,b,l):
+def time_window_penalty(route_k,b): #論文でのw(s)
     sum =0
     for i in range(len(route_k)):
         a = b[route_k[i]] - l[route_k[i]]
@@ -150,7 +185,7 @@ jが車両番号、rowは車両jの顧客リストを取得
 
 
 def neighbourhood(route,requestnode):
-    m = np.arange(len(route))
+    mm = np.arange(len(route))
     i = random.randint(1,requestnode/2)
     for j,row in enumerate(route):
         try:
@@ -160,13 +195,13 @@ def neighbourhood(route,requestnode):
         except ValueError:
             pass
     u_before = np.array(u_before) #車両変更前 U = [顧客番号、車両番号]
-    k_new = int(np.random.choice(m[m != u_before[1]],size=1))
+    k_new = int(np.random.choice(mm[mm != u_before[1]],size=1))
     u_after = np.array([u_before[0],k_new]) #車両変更後 U = [顧客番号、新たな車両番号]
     neighbour = np.append(u_before,u_after,axis=0).reshape(2,2)
     return neighbour
 
 def newRoute(route,requestnode,neighbour):
-    new_route = route
+    new_route = copy.deepcopy(route)
     for j in range(len(route)):
         try:
             new_route[j].remove(neighbour[0][0])
@@ -174,76 +209,220 @@ def newRoute(route,requestnode,neighbour):
             break
         except ValueError:
             pass
-
+    new_route = insert_route(new_route,requestnode,neighbour)
     return new_route
 
-def penalty_sum(route):
+def penalty_sum(route,requestnode):
+    parameta = np.zeros(4)
     c_s = Route_cost(route)
     q_s = capacity(route)
+    d_s =0
+    w_s =0
+    t_s =0
+    for i in range(len(route)):
+        ROUTE_TIME_info= time_caluculation(route[i],requestnode)
+        d_s_s =ROUTE_TIME_info[1][-1] -T_max
+        if d_s_s < 0:
+            d_s_s = 0
+        d_s = d_s + d_s_s
+        w_s =w_s +time_window_penalty(route[i],ROUTE_TIME_info[1])
+        t_s =t_s +ride_time_penalty(ROUTE_TIME_info[4])
 
-FILENAME='darp01.txt'
-Setting_Info= Setting(FILENAME)[0]
+    penalty =c_s+keisu[0]*q_s+keisu[1]*d_s+keisu[2]*w_s+keisu[3]*t_s
+    no_penalty =c_s+q_s+d_s+w_s+t_s
+    parameta[0] = q_s
+    parameta[1] = d_s
+    parameta[2] = w_s
+    parameta[3] =t_s
+    return penalty,parameta,no_penalty
 
-n = int(Setting(FILENAME)[1]) #depoを除いたノード数
-m =int(Setting_Info[0])  #車両数
-d = 5 #乗り降りの時間
-Q_max =Setting_Info[4]  #車両の最大容量 global変数 capacity関数で使用
-T_max = Setting_Info[8] #一台当たりの最大移動時間
-L_max = Setting_Info[9] #一人あたりの最大移動時間
+def penalty_sum_route_k(route_k,requestnode):
+    c_s =route_k_cost_sum(route_k)
+    q_s =capacity_route_k(route_k)
+    d_s = 0
+    w_s = 0
+    t_s = 0
+    ROUTE_TIME_info = time_caluculation(route_k, requestnode)
+    d_s = ROUTE_TIME_info[1][-1]
+    w_s = time_window_penalty(route_k, ROUTE_TIME_info[1])
+    t_s = ride_time_penalty(ROUTE_TIME_info[4])
 
-noriori = np.zeros(n+1,dtype=int,order='C')
-noriori = Setting(FILENAME)[6] #global変数  capacity関数で使用
+    penalty = c_s + keisu[0]*q_s + keisu[1]*d_s + keisu[2]*w_s + keisu[3]*t_s
+    return penalty
+
+def insert_route(route,requestnode,neighbor):
+    new_route_k =copy.deepcopy(route[neighbor[1][1]])
+    insert_number=neighbor[0][0]
+    route_k_node = len(route[neighbor[1][1]])
+
+    new_route_k.insert(0,insert_number)
+    new_route_k.insert(1,insert_number+int(requestnode/2))
+    penalty=penalty_sum_route_k(new_route_k,requestnode)
+    check_route = copy.deepcopy(route[neighbor[1][1]])
+    for i in range(route_k_node):
+        j=i+1
+        while j<=4:
+            check_route = copy.deepcopy(route[neighbor[1][1]])
+            check_route.insert(i,insert_number)
+            check_route.insert(j,int(insert_number+requestnode/2))
+            check_penalty =penalty_sum_route_k(check_route,requestnode)
+            if check_penalty <penalty:
+                penalty =check_penalty
+                new_route_k =copy.deepcopy(check_route)
+            j=j+1
+    new_route =copy.deepcopy(route)
+    new_route[neighbor[1][1]] =copy.deepcopy(new_route_k)
+    return new_route
+
+def keisu_update(delta,parameta):
+    for i in range(len(parameta)):
+        if parameta[i] > 0:
+            keisu[i] =keisu[i] * (1+delta)
+        else:
+            keisu[i] = keisu[i] /(1+delta)
+
+def tabu_update(theta,tabu_list,neighbour):
+    for i in range(math.ceil(theta)):
+        if tabu_list[i][2] == -1:
+            tabu_list[i][0] = neighbour[0][0]
+            tabu_list[i][1] = neighbour[0][1]
+            tabu_list[i][2] = math.ceil(theta) +1
+            break
+    for i in range(math.ceil(theta)):
+        if tabu_list[i][2] >=0:
+            tabu_list[i][2] = tabu_list[i][2]-1
+
+def syutyu(route,requestnode):
+    newroute = copy.deepcopy(route)
+    loop =1
+    for i in range(len(route)):
+        for j in range(requestnode):
+            try:
+                newroute[i].remove(loop)
+                newroute[i].remove(loop+requestnode/2)
+                break
+            except ValueError:
+                pass
+            newroute = insert_route_k(newroute,i,j,requestnode)
+            loop +=1
+    return  newroute
+
+def insert_route_k(route,veichle,number,requestnode):
+    new_route_k = copy.deepcopy(route[veichle])
+    insert_number = number
+    route_k_node = len(route[veichle])
+
+    new_route_k.insert(0, insert_number)
+    new_route_k.insert(1, insert_number + int(requestnode / 2))
+    penalty = penalty_sum_route_k(new_route_k, requestnode)
+    check_route = copy.deepcopy(route[veichle])
+    for i in range(route_k_node):
+        j = i + 1
+        while j <= 4:
+            check_route = copy.deepcopy(route[veichle])
+            check_route.insert(i, insert_number)
+            check_route.insert(j, int(insert_number + requestnode / 2))
+            check_penalty = penalty_sum_route_k(check_route, requestnode)
+            if check_penalty < penalty:
+                penalty = check_penalty
+                new_route_k = copy.deepcopy(check_route)
+            j = j + 1
+    new_route = copy.deepcopy(route)
+    new_route[veichle] = copy.deepcopy(new_route_k)
+    return new_route
+
+def main(LOOP,N):
+    data = np.zeros(LOOP)
+    initial_Route = initial_sulution(n, m) #初期解生成
+    syoki = copy.deepcopy(initial_Route)
+    opt = penalty_sum(initial_Route,n)[2]
+    test =penalty_sum(initial_Route,n)[2]
+    loop =0 #メインのループ回数
+    parameta_loop =0 #パラメーター調整と集中化のループ回数(ループ回数は10回)
+    delta =0.5
+    theta =5
+    tabu_list = np.zeros((theta,3))-1
+    kinbo_cost= float('inf')
+    syutyu_loop =0
+    while True:
+        for i in range(N):
+            while True:
+                Neighbour =neighbourhood(initial_Route,n)   #近傍探索操作[リクエスト番号,以前の車両]→[リクエスト番号,挿入する車両]
+                check=0
+                for i in range(len(tabu_list)): #ループ回数をtabu_listのサイズにあわせなければならない
+                    if tabu_list[i][0] == Neighbour[1][0] and tabu_list[i][1] == Neighbour[1][1] and tabu_list[i][2] >=0: #たぶん間違い
+                        check +=1
+                    if tabu_list[i][0] == Neighbour[0][0] and tabu_list[i][1] == Neighbour[0][1] and tabu_list[i][2] >=0: #たぶん間違い
+                        check +=1
+                if check ==0:
+                    break
+            NewRoute = copy.deepcopy(newRoute(initial_Route,n,Neighbour))
+            if penalty_sum(NewRoute,n)[2] < kinbo_cost:
+                best_neighbour = Neighbour
+                NextRoute = copy.deepcopy(NewRoute)
+                kinbo_cost =penalty_sum(NextRoute,n)[0]
+
+        if kinbo_cost <= opt:
+            opt = kinbo_cost
+            saiteki_route =NextRoute
+            saiteki = penalty_sum(saiteki_route,n)[2]
 
 
 
 
-depo_zahyo=Setting(FILENAME)[2] #デポの座標
-
-c = np.zeros((n+1,n+1),dtype=float,order='C')
-c= Setting(FILENAME)[3] #各ノード間のコスト
+        tabu_update(theta,tabu_list,best_neighbour)
+        kinbo_cost = float('inf')
 
 
-e = np.zeros(n+1,dtype=float,order='C')
-l = np.zeros(n+1,dtype=float,order='C')
-e = Setting(FILENAME)[4]
-l = Setting(FILENAME)[5]
-
-print(e)
-
-#initial_solution
-
-Route = initial_sulution(n,m)
+        initial_Route = copy.deepcopy(NextRoute)
 
 
 
+        parameta_loop += 1
+        if parameta_loop ==100:
+            delta =np.random.uniform(0,0.5)
+            parameta_loop =0
 
-print(noriori)
+        data[loop] = opt
+        loop +=1
+        if loop ==LOOP:
+            break
 
-Route_SUM = Route_cost(Route)
-print(Route_SUM)
+    print(syoki)
+    print(saiteki_route)
+    print(test,opt)
+    print(saiteki)
+    print(penalty_sum(saiteki_route,n)[1])
+    print(keisu)
+    print(tabu_list)
+    np.savetxt('/home/kurozumi/デスクトップ/data/bench2.ods', data, delimiter=",")
 
-print(T_max)
-print(L_max)
+if __name__ =='__main__':
+    FILENAME = 'darp02.txt'
+    Setting_Info = Setting(FILENAME)[0]
 
-q_s = capacity(Route)
-print(q_s)
+    n = int(Setting(FILENAME)[1])  # depoを除いたノード数
+    m = int(Setting_Info[0])  # 車両数
+    d = 5  # 乗り降りの時間
+    Q_max = Setting_Info[4]  # 車両の最大容量 global変数 capacity関数で使用
+    T_max = Setting_Info[8]  # 一台当たりの最大移動時間
+    L_max = Setting_Info[9]  # 一人あたりの最大移動時間
 
+    noriori = np.zeros(n + 1, dtype=int, order='C')
+    noriori = Setting(FILENAME)[6]  # global変数  capacity関数で使用
 
-A = np.zeros(n+2,dtype=float,order='C')
-D =np.zeros(n+2,dtype=float,order='C')
+    depo_zahyo = Setting(FILENAME)[2]  # デポの座標
 
-B= time_caluculation(Route[0],c,e,d,n)
-print(B[4])
+    c = np.zeros((n + 1, n + 1), dtype=float, order='C')
+    c = Setting(FILENAME)[3]  # 各ノード間のコスト
 
-w = time_window_penalty(Route[0],B[1],l)
-print(w)
+    e = np.zeros(n + 1, dtype=float, order='C')
+    l = np.zeros(n + 1, dtype=float, order='C')
+    e = Setting(FILENAME)[4]
+    l = Setting(FILENAME)[5]
 
-t = ride_time_penalty(B[4])
-print(t)
-
-Neighbour = neighbourhood(Route,n)
-print(Neighbour)
-print(Route)
-New_Route = newRoute(Route,n,Neighbour) #関数を使うと前のルートも一緒に更新されてしまう→何故？？？？？？？
-print(New_Route)
-print(Route)
+    keisu =np.ones(4)
+    t1 = time.time()
+    main(10000,4)
+    t2 =time.time()
+    print(f"time:{t2-t1}")
