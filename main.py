@@ -141,22 +141,23 @@ def time_caluculation(Route_k, request_node):
     D = np.zeros(n + 2, dtype=float, order='C')  # ノード出発時間
     W = np.zeros(n + 2, dtype=float, order='C')  # 車両待ち時間
     L = np.zeros(int(request_node / 2), dtype=float, order='C')  # リクエストiの乗車時間
-    for i in range(len(Route_k)):
-        if i == 0:
-            A[Route_k[i]] = D[i] + c[i][Route_k[i]]
-            B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
-            D[Route_k[i]] = B[Route_k[i]] + d
-            W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
-        else:
-            A[Route_k[i]] = D[Route_k[i - 1]] + c[Route_k[i - 1]][Route_k[i]]
-            B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
-            D[Route_k[i]] = B[Route_k[i]] + d
-            W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
-    A[-1] = D[Route_k[len(Route_k)-1]] + c[0][Route_k[len(Route_k)-1]]
-    B[-1] = A[-1]
-    for i in range(len(Route_k)):
-        if Route_k[i] <= request_node / 2:
-            L[Route_k[i] - 1] = B[Route_k[i] + int(request_node / 2)] - D[Route_k[i]]
+    if not len(Route_k) == 0:
+        for i in range(len(Route_k)):
+            if i == 0:
+                A[Route_k[i]] = D[i] + c[i][Route_k[i]]
+                B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
+                D[Route_k[i]] = B[Route_k[i]] + d
+                W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
+            else:
+                A[Route_k[i]] = D[Route_k[i - 1]] + c[Route_k[i - 1]][Route_k[i]]
+                B[Route_k[i]] = max(e[Route_k[i]], A[Route_k[i]])
+                D[Route_k[i]] = B[Route_k[i]] + d
+                W[Route_k[i]] = B[Route_k[i]] - A[Route_k[i]]
+        A[-1] = D[Route_k[len(Route_k)-1]] + c[0][Route_k[len(Route_k)-1]]
+        B[-1] = A[-1]
+        for i in range(len(Route_k)):
+            if Route_k[i] <= request_node / 2:
+                L[Route_k[i] - 1] = B[Route_k[i] + int(request_node / 2)] - D[Route_k[i]]
     return A, B, D, W, L
 
 
@@ -363,14 +364,15 @@ def insert_route_k(route, veichle, number, requestnode):
 
 def main(LOOP, N):
     data = np.zeros(LOOP)
-    initial_Route = initial_sulution(n, m)  # 初期解生成
+    #initial_Route = initial_sulution(n,m)
+    initial_Route = [[6, 30, 8, 32, 7, 31, 5, 29, 21, 45, 14, 38, 1, 25, 10, 34], [3, 27, 18, 42, 23, 47, 16, 40, 17, 41, 20, 44, 2, 26, 12, 36], [15, 39, 24, 48, 22, 46, 11, 35, 4, 28, 19, 43, 13, 37, 9, 33]]
     syoki = copy.deepcopy(initial_Route)
     opt = penalty_sum(initial_Route, n)[2]
     test = penalty_sum(initial_Route, n)[2]
     loop = 0  # メインのループ回数
     parameta_loop = 0  # パラメーター調整と集中化のループ回数(ループ回数は10回)
     delta = 0.5
-    theta = 5
+    theta = 10
     tabu_list = np.zeros((theta, 3)) - 1
     kinbo_cost = float('inf')
     syutyu_loop = 0
@@ -450,6 +452,6 @@ if __name__ == '__main__':
 
     keisu = np.ones(4)
     t1 = time.time()
-    main(10000, 4)
+    main(500, 4)
     t2 = time.time()
     print(f"time:{t2 - t1}")
