@@ -228,13 +228,14 @@ def penalty_sum(route, requestnode):
     w_s = 0
     t_s = 0
     for i in range(len(route)):
-        ROUTE_TIME_info = time_caluculation(route[i], requestnode)
-        d_s_s = ROUTE_TIME_info[1][-1] - T_max
-        if d_s_s < 0:
-            d_s_s = 0
-        d_s = d_s + d_s_s
-        w_s = w_s + time_window_penalty(route[i], ROUTE_TIME_info[1])
-        t_s = t_s + ride_time_penalty(ROUTE_TIME_info[4])
+        if not len(route[i]) == 0:
+            ROUTE_TIME_info = time_caluculation(route[i], requestnode)
+            d_s_s = (ROUTE_TIME_info[1][-1]-ROUTE_TIME_info[1][route[i][1]] +c[0][route[i][1]])- T_max
+            if d_s_s < 0:
+                d_s_s = 0
+            d_s = d_s + d_s_s
+            w_s = w_s + time_window_penalty(route[i], ROUTE_TIME_info[1])
+            t_s = t_s + ride_time_penalty(ROUTE_TIME_info[4])
 
     penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s
     no_penalty = c_s + q_s + d_s + w_s + t_s
@@ -251,10 +252,14 @@ def penalty_sum_route_k(route_k, requestnode):
     d_s = 0
     w_s = 0
     t_s = 0
-    ROUTE_TIME_info = time_caluculation(route_k, requestnode)
-    d_s = ROUTE_TIME_info[1][-1]
-    w_s = time_window_penalty(route_k, ROUTE_TIME_info[1])
-    t_s = ride_time_penalty(ROUTE_TIME_info[4])
+    if not len(route_k) == 0:
+        ROUTE_TIME_info = time_caluculation(route_k, requestnode)
+        d_s_s = (ROUTE_TIME_info[1][-1] - ROUTE_TIME_info[1][route_k[1]] + c[0][route_k[1]]) - T_max
+        if d_s_s < 0:
+            d_s_s = 0
+        d_s = d_s + d_s_s
+        w_s = time_window_penalty(route_k, ROUTE_TIME_info[1])
+        t_s = ride_time_penalty(ROUTE_TIME_info[4])
 
     penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s
     return penalty

@@ -230,22 +230,20 @@ def penalty_sum(route, requestnode):
     for i in range(len(route)):
         if not len(route[i]) == 0:
             ROUTE_TIME_info = time_caluculation(route[i], requestnode)
-            d_s_s = (ROUTE_TIME_info[1][-1] - ROUTE_TIME_info[1][route[i][1]] + c[0][route[i][1]]) - T_max
+            d_s_s = (ROUTE_TIME_info[1][-1]-ROUTE_TIME_info[1][route[i][1]] +c[0][route[i][1]])- T_max
             if d_s_s < 0:
                 d_s_s = 0
             d_s = d_s + d_s_s
             w_s = w_s + time_window_penalty(route[i], ROUTE_TIME_info[1])
             t_s = t_s + ride_time_penalty(ROUTE_TIME_info[4])
-
     no_penalty = c_s + q_s + d_s + w_s + t_s
     penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s
-
 
     parameta[0] = q_s
     parameta[1] = d_s
     parameta[2] = w_s
     parameta[3] = t_s
-    return penalty, parameta, no_penalty
+    return penalty, parameta, no_penalty,np.sum(parameta)
 
 
 def penalty_sum_route_k(route_k, requestnode):
@@ -358,8 +356,9 @@ def insert_route_ver2(route,requestnode,riyoukyakunumber,new_vehiclenumber):
 
 def keisu_update(delta, parameta):
     for i in range(len(parameta)):
-        if parameta[i] > 0:
-            keisu[i] = keisu[i] * (1 + delta)
+        if parameta[i] > 0 :
+            if keisu[i] <100:
+                keisu[i] = keisu[i] * (1 + delta)
         else:
             keisu[i] = keisu[i] / (1 + delta)
 
@@ -450,8 +449,9 @@ def main(LOOP):
     data = np.zeros(LOOP)
     initial_Route = initial_sulution(n, m)  # 初期解生成
     syoki = copy.deepcopy(initial_Route)
-    opt = penalty_sum(initial_Route, n)[2]
-    test = penalty_sum(initial_Route, n)[2]
+    opt = penalty_sum(initial_Route, n)[0]
+    opt2 = opt
+    test = penalty_sum(initial_Route, n)[0]
     loop = 0  # メインのループ回数
     parameta_loop = 0  # パラメーター調整と集中化のループ回数(ループ回数は10回)
     delta = 0.5
@@ -475,24 +475,27 @@ def main(LOOP):
                         best_neighbour[0] = i
                         best_neighbour[1] = old_vehiclenumber
                         NextRoute = copy.deepcopy(NewRoute)
-                        kinbo_cost = penalty_sum(NextRoute, n)[2]
+                        kinbo_cost = penalty_sum(NextRoute, n)[0]
 
         if kinbo_cost <= opt:
             opt = kinbo_cost
+            opt2 = penalty_sum(NextRoute,n)[2]
             saiteki_route = copy.deepcopy(NextRoute)
             saiteki = penalty_sum(saiteki_route, n)[2]
+
+
 
         tabu_update_ver2(kinsi, tabu_list, best_neighbour)
         kinbo_cost = float('inf')
 
         initial_Route = copy.deepcopy(NextRoute)
-
+        keisu_update(delta,penalty_sum(NextRoute,n)[1])
         parameta_loop += 1
         if parameta_loop == 100:
             delta = np.random.uniform(0, 0.5)
             parameta_loop = 0
 
-        data[loop] = opt
+        data[loop] = opt2
         loop += 1
         if loop == LOOP:
             break
@@ -504,7 +507,7 @@ def main(LOOP):
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    np.savetxt('/home/kurozumi/デスクトップ/data/bench.ods', data, delimiter=",")
+    np.savetxt('/home/kurozumi/デスクトップ/data/bench1025.ods', data, delimiter=",")
 
 
 if __name__ == '__main__':
@@ -531,9 +534,8 @@ if __name__ == '__main__':
     e = Setting(FILENAME)[4]
     l = Setting(FILENAME)[5]
 
-    keisu = np.ones(4)
+    keisu = np.ones(4)*100
     t1 = time.time()
-    main(2000)
+    main(100)
     t2 = time.time()
     print(f"time:{t2 - t1}")
-
