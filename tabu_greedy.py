@@ -362,8 +362,8 @@ def keisu_update(delta, parameta):
                 keisu[i] = keisu[i] * (1 + delta)
         else:
             keisu[i] = keisu[i] / (1 + delta)
-            if keisu[i] < 1:
-                keisu[i] =1
+            if keisu[i] < 50:
+                keisu[i] =50
 
 
 def tabu_update(theta, tabu_list, neighbour):
@@ -449,16 +449,18 @@ def tabu_update_ver2(kinsi,tabu_list,neighbour):    #kinsiはその近傍を何�
             tabu_list[i][2] = tabu_list[i][2] - 1
 
 def main(LOOP):
-    data = np.zeros(LOOP)
+    equ =0
+    data = np.zeros((LOOP,2))
     initial_Route = initial_sulution(n, m)  # 初期解生成
     syoki = copy.deepcopy(initial_Route)
+    saiteki_route = copy.deepcopy(initial_Route)
     opt = penalty_sum(initial_Route, n)[0]
     opt2 = opt
     test = penalty_sum(initial_Route, n)[0]
     loop = 0  # メインのループ回数
     parameta_loop = 0  # パラメーター調整と集中化のループ回数(ループ回数は10回)
     delta = 0.5
-    theta = int(n/2*(m-1))
+    theta =  int(7.5 * math.log10(n/2))
     kinsi = theta
     tabu_list = np.zeros((theta, 3)) - 1
     kinbo_cost = float('inf')
@@ -484,7 +486,8 @@ def main(LOOP):
                     best_neighbour[1] = old_vehiclenumber
                     NextRoute = copy.deepcopy(NewRoute)
                     kinbo_cost = penalty_sum(NextRoute, n)[0]
-                    skip =1
+                if kinbo_cost < penalty_sum(initial_Route, n)[0]:
+                    skip = 1
                     break
 
             if skip ==1:
@@ -512,9 +515,14 @@ def main(LOOP):
             delta = np.random.uniform(0, 0.5)
             parameta_loop = 0
 
-        data[loop] = opt
+        data[loop][1] = opt
+        data[loop][0] = time.time()-t1
+        if data[loop][1] == data[loop-1][1]:
+            equ +=1
+        else:
+            equ =0
         loop += 1
-        if loop == LOOP:
+        if loop == LOOP or equ ==100:
             break
 
     print(syoki)
@@ -524,11 +532,11 @@ def main(LOOP):
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/greedy.ods', data, delimiter=",")
+    np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/greedy2'+FILENAME+'.csv', data, delimiter=",")
 
 
 if __name__ == '__main__':
-    FILENAME = 'darp01.txt'
+    FILENAME = 'darp03.txt'
     Setting_Info = Setting(FILENAME)[0]
 
     n = int(Setting(FILENAME)[1])  # depoを除いたノード数
@@ -551,9 +559,9 @@ if __name__ == '__main__':
     e = Setting(FILENAME)[4]
     l = Setting(FILENAME)[5]
 
-    keisu = np.ones(4)*80
+    keisu = [1,50,80,80]
     t1 = time.time()
-    main(10000)
+    main(1000)
     t2 = time.time()
     print(f"time:{t2 - t1}")
 
