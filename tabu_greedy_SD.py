@@ -22,6 +22,17 @@ def distance(x1, x2, y1, y2):
     d = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return d
 
+def hyojun(route): #標準偏差の計算, disに各車両の移動距離格納
+    dis = []
+    for i in range(len(route)):
+        sum_k = 0
+        if len(route[i]) != 0:
+            for j in range(len(route[i]) - 1):
+                sum_k += c[route[i][j]][route[i][j + 1]]
+            sum_k += c[0][route[i][0]]
+            sum_k += c[0][route[i][j + 1]]
+        dis.append(sum_k)
+    return np.std(dis)
 
 def Setting(FILENAME):
     mat = []
@@ -227,6 +238,7 @@ def penalty_sum(route, requestnode):
     d_s = 0
     w_s = 0
     t_s = 0
+    h_s = hyojun(route)
     for i in range(len(route)):
         if not len(route[i]) == 0:
             ROUTE_TIME_info = time_caluculation(route[i], requestnode)
@@ -237,7 +249,7 @@ def penalty_sum(route, requestnode):
             w_s = w_s + time_window_penalty(route[i], ROUTE_TIME_info[1])
             t_s = t_s + ride_time_penalty(ROUTE_TIME_info[4])
     no_penalty = c_s + q_s + d_s + w_s + t_s
-    penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s
+    penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s+h_s
 
     parameta[0] = q_s
     parameta[1] = d_s
@@ -529,14 +541,15 @@ def main(LOOP):
     print(saiteki_route)
     print(test, opt)
     print(saiteki)
+    print(hyojun(saiteki_route))
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    np.savetxt('/home/kurozumi/デスクトップ/data/greedy2'+FILENAME+'.csv', data, delimiter=",")
+    np.savetxt('/home/kurozumi/デスクトップ/data/greedy_hs'+FILENAME+'.csv', data, delimiter=",")
 
 
 if __name__ == '__main__':
-    FILENAME = 'darp01.txt'
+    FILENAME = 'darp05.txt'
     Setting_Info = Setting(FILENAME)[0]
 
     n = int(Setting(FILENAME)[1])  # depoを除いたノード数

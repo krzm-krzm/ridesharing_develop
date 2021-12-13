@@ -504,7 +504,7 @@ def main(LOOP):
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    np.savetxt('/home/kurozumi/デスクトップ/data/bench.ods', data, delimiter=",")
+    np.savetxt('/home/kurozumi/デスクトップ/data/no_penalty.ods', data, delimiter=",")
 
 
 if __name__ == '__main__':
@@ -533,7 +533,7 @@ if __name__ == '__main__':
 
     keisu = np.ones(4)
     t1 = time.time()
-    main(2000)
+    main(1000)
     t2 = time.time()
     print(f"time:{t2 - t1}")
 
