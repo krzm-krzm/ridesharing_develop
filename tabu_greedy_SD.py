@@ -22,6 +22,17 @@ def distance(x1, x2, y1, y2):
     d = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
     return d
 
+def hyojun(route): #標準偏差の計算, disに各車両の移動距離格納
+    dis = []
+    for i in range(len(route)):
+        sum_k = 0
+        if len(route[i]) != 0:
+            for j in range(len(route[i]) - 1):
+                sum_k += c[route[i][j]][route[i][j + 1]]
+            sum_k += c[0][route[i][0]]
+            sum_k += c[0][route[i][j + 1]]
+        dis.append(sum_k)
+    return np.std(dis)
 
 def Setting(FILENAME):
     mat = []
@@ -227,6 +238,7 @@ def penalty_sum(route, requestnode):
     d_s = 0
     w_s = 0
     t_s = 0
+    h_s = hyojun(route)
     for i in range(len(route)):
         if not len(route[i]) == 0:
             ROUTE_TIME_info = time_caluculation(route[i], requestnode)
@@ -237,7 +249,7 @@ def penalty_sum(route, requestnode):
             w_s = w_s + time_window_penalty(route[i], ROUTE_TIME_info[1])
             t_s = t_s + ride_time_penalty(ROUTE_TIME_info[4])
     no_penalty = c_s + q_s + d_s + w_s + t_s
-    penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s
+    penalty = c_s + keisu[0] * q_s + keisu[1] * d_s + keisu[2] * w_s + keisu[3] * t_s+h_s
 
     parameta[0] = q_s
     parameta[1] = d_s
@@ -350,6 +362,7 @@ def insert_route_ver2(route,requestnode,riyoukyakunumber,new_vehiclenumber):
     if check_penalty < penalty:
         penalty = check_penalty
         new_route_k = copy.deepcopy(check_route)
+
     new_route = copy.deepcopy(route)
     new_route[new_vehiclenumber] = copy.deepcopy(new_route_k)
     return new_route
@@ -361,6 +374,8 @@ def keisu_update(delta, parameta):
                 keisu[i] = keisu[i] * (1 + delta)
         else:
             keisu[i] = keisu[i] / (1 + delta)
+            if keisu[i] < 50:
+                keisu[i] =50
 
 
 def tabu_update(theta, tabu_list, neighbour):
@@ -446,36 +461,49 @@ def tabu_update_ver2(kinsi,tabu_list,neighbour):    #kinsiはその近傍を何�
             tabu_list[i][2] = tabu_list[i][2] - 1
 
 def main(LOOP):
-    data = np.zeros(LOOP)
+    equ =0
+    data = np.zeros((LOOP,2))
     initial_Route = initial_sulution(n, m)  # 初期解生成
     syoki = copy.deepcopy(initial_Route)
+    saiteki_route = copy.deepcopy(initial_Route)
     opt = penalty_sum(initial_Route, n)[0]
     opt2 = opt
     test = penalty_sum(initial_Route, n)[0]
     loop = 0  # メインのループ回数
     parameta_loop = 0  # パラメーター調整と集中化のループ回数(ループ回数は10回)
     delta = 0.5
-    theta = 10
-    kinsi = 10
+    theta =  int(7.5 * math.log10(n/2))
+    kinsi = theta
     tabu_list = np.zeros((theta, 3)) - 1
     kinbo_cost = float('inf')
     syutyu_loop = 0
+    saisyo = 0
     while True:
+        skip = 0
         best_neighbour = np.zeros(2)
         riyoukyaku_list = np.arange(1,n/2+1)
         for i in riyoukyaku_list:
             syaryo_loop = np.arange(m)
             syaryo_loop = np.delete(syaryo_loop,int(syaryo_tokutei(initial_Route,i)))
             for j in syaryo_loop:
-                    check = tabu_check(i,j,tabu_list)
-                    if not check ==1:
-                        old_vehiclenumber = syaryo_tokutei(initial_Route,i)
-                        NewRoute = copy.deepcopy(newRoute_ver2(initial_Route,n,i,old_vehiclenumber,j))
-                    if penalty_sum(NewRoute, n)[0] < kinbo_cost:
-                        best_neighbour[0] = i
-                        best_neighbour[1] = old_vehiclenumber
-                        NextRoute = copy.deepcopy(NewRoute)
-                        kinbo_cost = penalty_sum(NextRoute, n)[0]
+                skip = 0
+                check = tabu_check(i,j,tabu_list)
+                if not check >0:
+                    old_vehiclenumber = syaryo_tokutei(initial_Route,i)
+                    NewRoute = copy.deepcopy(newRoute_ver2(initial_Route,n,i,old_vehiclenumber,j))
+                else:
+                    continue
+                if penalty_sum(NewRoute, n)[0] < kinbo_cost:
+                    best_neighbour[0] = i
+                    best_neighbour[1] = old_vehiclenumber
+                    NextRoute = copy.deepcopy(NewRoute)
+                    kinbo_cost = penalty_sum(NextRoute, n)[0]
+                if kinbo_cost < penalty_sum(initial_Route, n)[0]:
+                    skip = 1
+                    break
+
+            if skip ==1:
+                break
 
         if kinbo_cost <= opt:
             opt = kinbo_cost
@@ -483,7 +511,11 @@ def main(LOOP):
             saiteki_route = copy.deepcopy(NextRoute)
             saiteki = penalty_sum(saiteki_route, n)[2]
 
-
+        if np.sum(penalty_sum(saiteki_route,n)[1]) ==0 and saisyo ==0:
+            saisyo =1
+            t3 = time.time()
+            print(f"time:{t3 - t1}")
+            print(loop)
 
         tabu_update_ver2(kinsi, tabu_list, best_neighbour)
         kinbo_cost = float('inf')
@@ -495,23 +527,29 @@ def main(LOOP):
             delta = np.random.uniform(0, 0.5)
             parameta_loop = 0
 
-        data[loop] = opt2
+        data[loop][1] = opt
+        data[loop][0] = time.time()-t1
+        if data[loop][1] == data[loop-1][1]:
+            equ +=1
+        else:
+            equ =0
         loop += 1
-        if loop == LOOP:
+        if loop == LOOP or equ ==100:
             break
 
     print(syoki)
     print(saiteki_route)
     print(test, opt)
     print(saiteki)
+    print(hyojun(saiteki_route))
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    #np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/bench1.ods', data, delimiter=",")
+    np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/greedy_hs'+FILENAME+'.csv', data, delimiter=",")
 
 
 if __name__ == '__main__':
-    FILENAME = 'darp01.txt'
+    FILENAME = 'darp05.txt'
     Setting_Info = Setting(FILENAME)[0]
 
     n = int(Setting(FILENAME)[1])  # depoを除いたノード数
@@ -534,8 +572,14 @@ if __name__ == '__main__':
     e = Setting(FILENAME)[4]
     l = Setting(FILENAME)[5]
 
-    keisu = np.ones(4)*50
+    keisu = [1,50,80,80]
     t1 = time.time()
-    main(100)
+    main(1000)
     t2 = time.time()
     print(f"time:{t2 - t1}")
+    print(FILENAME)
+
+
+#変更点：パラメータは必ず1以上に
+#変更点:タブーリストの大きさ
+#変更点：違反が0になった時点のtimeと探索回数をprint

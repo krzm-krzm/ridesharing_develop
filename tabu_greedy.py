@@ -532,11 +532,11 @@ def main(LOOP):
     print(penalty_sum(saiteki_route, n)[1])
     print(keisu)
     print(tabu_list)
-    np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/greedy2'+FILENAME+'.csv', data, delimiter=",")
+    #np.savetxt('/Users/kurozumi ryouho/Desktop/benchmark/greedy2'+FILENAME+'.csv', data, delimiter=",")
 
 
 if __name__ == '__main__':
-    FILENAME = 'darp03.txt'
+    FILENAME = 'darp01.txt'
     Setting_Info = Setting(FILENAME)[0]
 
     n = int(Setting(FILENAME)[1])  # depoを除いたノード数
@@ -564,6 +564,7 @@ if __name__ == '__main__':
     main(1000)
     t2 = time.time()
     print(f"time:{t2 - t1}")
+    print(FILENAME)
 
 
 #変更点：パラメータは必ず1以上に
